@@ -1,1 +1,0 @@
-![form](img/typingspeed.png)
