@@ -2,7 +2,6 @@ import os
 import time
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
-from bs4 import BeautifulSoup
 
 # Define the URL of the webpage containing the top 100 romantic movies
 url = "https://www.rottentomatoes.com/search?search=romantic%20movies"
@@ -21,15 +20,9 @@ for _ in range(scrolls):
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(2)  # Adjust the sleep time as needed
 
-# Get the page source
-page_source = driver.page_source
-
-# Parse the page source using BeautifulSoup
-soup = BeautifulSoup(page_source, 'html.parser')
-
 # Find all movie containers on the webpage
 try:
-    movie_containers = soup.find_all('ul', slot='list')
+    movie_containers = driver.find_elements_by_xpath("//ul[@slot='list']")
 except NoSuchElementException as e:
     print("Error finding movie containers:", e)
     movie_containers = []
@@ -47,10 +40,12 @@ with open('scraped_data/top_100_romantic_movies.csv', 'w', encoding='utf-8') as 
     for movie_container in movie_containers:
         try:
             # Extract movie title
-            title = movie_container.find('a', class_='unset').text.strip()
+            title_element = movie_container.find_element_by_xpath(".//a[@class='unset']")
+            title = title_element.text.strip()
 
             # Extract release date
-            release_date = movie_container.find('span', class_='year').strip()
+            release_date_element = movie_container.find_element_by_xpath(".//span[@class='year']")
+            release_date = release_date_element.text.strip()
 
             # Write data to file
             f.write(f"{title},{release_date}\n")
