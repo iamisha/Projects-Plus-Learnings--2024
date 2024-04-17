@@ -1,72 +1,58 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-import requests
-import io
-from PIL import Image
+import os
 import time
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 
-PATH = "/home/isha/Downloads/chromedriver"
+# Define the URL of the webpage containing the top 100 romantic movies
+url = "https://www.rottentomatoes.com/search?search=romantic%20movies"
 
-# initialize Chrome options
+# Set up Selenium WebDriver (assuming you have Chrome WebDriver installed)
 chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument("--headless")  # To run Chrome in headless mode
+driver = webdriver.Chrome(options=chrome_options)
 
-# initialize a new chrome webdriver session
-wd = webdriver.Chrome(options=chrome_options)
+# Open the webpage
+driver.get(url)
 
-def get_images_from_google(wd, delay, max_images):
-	def scroll_down(wd):
-		wd.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-		time.sleep(delay)
+# Scroll down the webpage to load all movies (if needed)
+scrolls = 20  # Increase the number of scrolls
+for _ in range(scrolls):
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(2)  # Adjust the sleep time as needed
 
-	url = "https://www.google.com/search?q=profile-avatar&tbm=isch&ved=2ahUKEwjykJ779tbzAhXhgnIEHSVQBksQ2-cCegQIABAA&oq=cats&gs_lcp=CgNpbWcQAzIHCAAQsQMQQzIHCAAQsQMQQzIECAAQQzIECAAQQzIECAAQQzIECAAQQzIECAAQQzIECAAQQzIECAAQQzIECAAQQzoHCCMQ7wMQJ1C_31NYvOJTYPbjU2gCcAB4AIABa4gBzQSSAQMzLjOYAQCgAQGqAQtnd3Mtd2l6LWltZ8ABAQ&sclient=img&ei=7vZuYfLhOeGFytMPpaCZ2AQ&bih=817&biw=1707&rlz=1C1CHBF_enCA918CA918"
-	wd.get(url)
+# Find all movie containers on the webpage
+try:
+    movie_containers = driver.find_elements_by_xpath("//ul[@slot='list']")
+except NoSuchElementException as e:
+    print("Error finding movie containers:", e)
+    movie_containers = []
 
-	image_urls = set()
-	skips = 0
+# Create a directory to save the scraped data if it doesn't exist
+if not os.path.exists('scraped_data'):
+    os.makedirs('scraped_data')
 
-	while len(image_urls) + skips < max_images:
-		scroll_down(wd)
+# Open a file to store the scraped data
+with open('scraped_data/top_100_romantic_movies.csv', 'w', encoding='utf-8') as f:
+    # Write header
+    f.write("Title,Release Date\n")
 
-		thumbnails = wd.find_elements(By.CLASS_NAME, "YQ4gaf")
+    # Extract data for each movie
+    for movie_container in movie_containers:
+        try:
+            # Extract movie title
+            title_element = movie_container.find_element_by_xpath(".//a[@class='unset']")
+            title = title_element.text.strip()
 
-		for img in thumbnails[len(image_urls) + skips:max_images]:
-			try:
-				img.click()
-				time.sleep(delay)
-			except:
-				continue
+            # Extract release date
+            release_date_element = movie_container.find_element_by_xpath(".//span[@class='year']")
+            release_date = release_date_element.text.strip()
 
-			images = wd.find_elements(By.CLASS_NAME, "cC9Rib")
-			for image in images:
-				if image.get_attribute('src') in image_urls:
-					max_images += 1
-					skips += 1
-					break
+            # Write data to file
+            f.write(f"{title},{release_date}\n")
+        except NoSuchElementException as e:
+            print("Error extracting data for a movie:", e)
 
-				if image.get_attribute('src') and 'http' in image.get_attribute('src'):
-					image_urls.add(image.get_attribute('src'))
-					print(f"Found {len(image_urls)}")
+# Close the WebDriver
+driver.quit()
 
-	return image_urls
-
-
-def download_image(download_path, url, file_name):
-	try:
-		image_content = requests.get(url).content
-		image_file = io.BytesIO(image_content)
-		image = Image.open(image_file)
-		file_path = download_path + file_name
-
-		with open(file_path, "wb") as f:
-			image.save(f, "JPEG")
-
-		print("Success")
-	except Exception as e:
-		print('FAILED -', e)
-
-urls = get_images_from_google(wd, 1, 6)
-
-for i, url in enumerate(urls):
-	download_image("imgs/", url, str(i) + ".jpg")
-
-wd.quit()
+print("Scraping complete. Data saved in 'top_100_romantic_movies.csv'.")
