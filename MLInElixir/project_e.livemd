@@ -1,0 +1,362 @@
+# project_e
+
+## Section
+
+```elixir
+Mix.install([
+  {:axon, "~>0.5"},
+  {:nx, "~> 0.5"},
+  {:explorer, "~>0.5"},
+  {:kino, "~> 0.8"}
+])
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+Below command includes all of the query macros which we can access via the DF alias
+
+```elixir
+require Explorer.DataFrame, as: DF
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Explorer.DataFrame
+```
+
+Working With Data
+
+```elixir
+# Download the datasets
+iris = Explorer.Datasets.iris()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[150 x 5]
+  sepal_length f64 [5.1, 4.9, 4.7, 4.6, 5.0, ...]
+  sepal_width f64 [3.5, 3.0, 3.2, 3.1, 3.6, ...]
+  petal_length f64 [1.4, 1.4, 1.3, 1.5, 1.4, ...]
+  petal_width f64 [0.2, 0.2, 0.2, 0.2, 0.2, ...]
+  species string ["Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", ...]
+>
+```
+
+Preparing the Data for training
+
+```elixir
+cols = ~w(sepal_width sepal_length petal_length petal_width)
+
+normalized_iris =
+  DF.mutate(
+    iris,
+    for col <- across(^cols) do
+      {col.name, (col - mean(col)) / variance(col)}
+    end
+  )
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[150 x 5]
+  sepal_length f64 [-1.0840606189132322, -1.3757361217598405, -1.66741162460645,
+   -1.8132493760297554, -1.2298983703365365, ...]
+  sepal_width f64 [2.3722896125315045, -0.28722789030650403, 0.7765791108287005, 0.2446756102610982,
+   2.9041931130991068, ...]
+  petal_length f64 [-0.757639168744384, -0.757639168744384, -0.789760671093637, -0.7255176663951308,
+   -0.757639168744384, ...]
+  petal_width f64 [-1.714701435665471, -1.714701435665471, -1.714701435665471, -1.714701435665471,
+   -1.714701435665471, ...]
+  species string ["Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", ...]
+>
+```
+
+Convert the species column to a categorical feature
+
+```elixir
+normalized_iris =
+  DF.mutate(normalized_iris,
+    species: Explorer.Series.cast(species, :category)
+  )
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[150 x 5]
+  sepal_length f64 [-1.0840606189132322, -1.3757361217598405, -1.66741162460645,
+   -1.8132493760297554, -1.2298983703365365, ...]
+  sepal_width f64 [2.3722896125315045, -0.28722789030650403, 0.7765791108287005, 0.2446756102610982,
+   2.9041931130991068, ...]
+  petal_length f64 [-0.757639168744384, -0.757639168744384, -0.789760671093637, -0.7255176663951308,
+   -0.757639168744384, ...]
+  petal_width f64 [-1.714701435665471, -1.714701435665471, -1.714701435665471, -1.714701435665471,
+   -1.714701435665471, ...]
+  species category ["Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", "Iris-setosa", ...]
+>
+```
+
+To simulate a real world env
+
+<!-- livebook:{"break_markdown":true} -->
+
+Shuffeling the DataFrame is important for both training and tesing
+
+```elixir
+shuffled_normalized_iris = DF.shuffle(normalized_iris)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[150 x 5]
+  sepal_length f64 [0.5201546467431196, -1.2298983703365365, 0.6659923981664237, 1.9785321609761661,
+   0.6659923981664237, ...]
+  sepal_width f64 [-4.542455894847317, -0.28722789030650403, -2.946745393144513, 2.9041931130991068,
+   1.3084826113963002, ...]
+  petal_length f64 [0.23812740408246344, -0.6933961640458776, 0.39873491582872916,
+   0.7520714416705135, 0.7199499393212606, ...]
+  petal_width f64 [0.51738654801121, -1.714701435665471, 1.2041828506809578, 2.2343773046855797,
+   2.2343773046855797, ...]
+  species category ["Iris-versicolor", "Iris-setosa", "Iris-virginica", "Iris-virginica",
+   "Iris-virginica", ...]
+>
+```
+
+Splitting into Train and Test sets
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+train_df = DF.slice(shuffled_normalized_iris, 0..119)
+test_df = DF.slice(shuffled_normalized_iris, 120..149)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Explorer.DataFrame<
+  Polars[30 x 5]
+  sepal_length f64 [-1.2298983703365365, 1.9785321609761661, 0.6659923981664237, 1.1035056524363374,
+   -1.521573873183146, ...]
+  sepal_width f64 [-5.606262895982521, -0.28722789030650403, -4.010552394279717,
+   -0.28722789030650403, 1.8403861119639024, ...]
+  petal_length f64 [-0.08308761941006797, 0.6557069346227542, 0.20600590173321043,
+   0.20600590173321043, -0.6933961640458776, ...]
+  petal_width f64 [-0.341108830325975, 0.6890856236786471, 0.17398839667633606, 0.3456874723437728,
+   -1.714701435665471, ...]
+  species category ["Iris-versicolor", "Iris-virginica", "Iris-versicolor", "Iris-versicolor",
+   "Iris-setosa", ...]
+>
+```
+
+Typically, categorical variables are represented using integers or one-
+hot encoding. One-hot encoding produces a tensor with N columns with every
+value being a 0 meaning “off”, except the index of the class, which is 1
+meaning “on”. As a simple example, if you consider we discretize the labels
+in this example into the integer values 0, 1, and 2. Then the one-hot encoded
+representation for each class would look like:
+
+for class 0
+
+[1, 0, 0]
+
+for class 1
+
+[0, 1, 0]
+
+for class 2
+[0, 0, 1]
+
+<!-- livebook:{"break_markdown":true} -->
+
+Implement the one-hot encoding
+
+```elixir
+feature_columns = [
+  "sepal_length",
+  "sepal_width",
+  "petal_length",
+  "petal_width"
+]
+
+x_train = Nx.stack(train_df[feature_columns], axis: -1)
+
+y_train =
+  train_df["species"]
+  |> Nx.stack(axis: -1)
+  |> Nx.equal(Nx.iota({1, 3}, axis: -1))
+
+x_test = Nx.stack(test_df[feature_columns], axis: -1)
+
+y_test =
+  test_df["species"]
+  |> Nx.stack(axis: -1)
+  |> Nx.equal(Nx.iota({1, 3}, axis: -1))
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  u8[30][3]
+  [
+    [0, 1, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, 1, 0],
+    [1, 0, 0],
+    [1, 0, 0],
+    [1, 0, 0],
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, ...],
+    ...
+  ]
+>
+```
+
+Defining the model
+
+```elixir
+model =
+  Axon.input("iris_features", shape: {nil, 4})
+  |> Axon.dense(3, activation: :softmax)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Axon<
+  inputs: %{"iris_features" => {nil, 4}}
+  outputs: "softmax_0"
+  nodes: 3
+>
+```
+
+Visualize model with kino
+
+```elixir
+Axon.Display.as_graph(model, Nx.template({1, 4}, :f32))
+```
+
+<!-- livebook:{"output":true} -->
+
+```mermaid
+graph TD;
+3[/"iris_features (:input) {1, 4}"/];
+4["dense_0 (:dense) {1, 3}"];
+5["softmax_0 (:softmax) {1, 3}"];
+4 --> 5;
+3 --> 4;
+```
+
+Declaring the input pipeline
+
+```elixir
+data_stream =
+  Stream.repeatedly(fn ->
+    {x_train, y_train}
+  end)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Function<51.48886818/2 in Stream.repeatedly/1>
+```
+
+Implement training loop
+
+```elixir
+trained_model_state =
+  model
+  |> Axon.Loop.trainer(:categorical_cross_entropy, :sgd)
+  |> Axon.Loop.metric(:accuracy)
+  |> Axon.Loop.run(data_stream, %{}, iterations: 500, epochs: 10)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Epoch: 0, Batch: 450, accuracy: 0.7810418 loss: 0.5490405
+Epoch: 1, Batch: 450, accuracy: 0.8634338 loss: 0.4451870
+Epoch: 2, Batch: 450, accuracy: 0.8956532 loss: 0.3957075
+Epoch: 3, Batch: 450, accuracy: 0.9162388 loss: 0.3631102
+Epoch: 4, Batch: 450, accuracy: 0.9416718 loss: 0.3388283
+Epoch: 5, Batch: 450, accuracy: 0.9540874 loss: 0.3195732
+Epoch: 6, Batch: 450, accuracy: 0.9500036 loss: 0.3037167
+Epoch: 7, Batch: 450, accuracy: 0.9500036 loss: 0.2903202
+Epoch: 8, Batch: 450, accuracy: 0.9500036 loss: 0.2787881
+Epoch: 9, Batch: 450, accuracy: 0.9500036 loss: 0.2687168
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{
+  "dense_0" => %{
+    "bias" => #Nx.Tensor<
+      f32[3]
+      [-0.4163343906402588, 1.5071890354156494, -1.090854525566101]
+    >,
+    "kernel" => #Nx.Tensor<
+      f32[4][3]
+      [
+        [-1.7498670816421509, 0.28658515214920044, 0.476629376411438],
+        [0.622040331363678, -0.34542518854141235, -0.5000662207603455],
+        [-0.2463403046131134, 0.917410671710968, 1.2834080457687378],
+        [-1.5987242460250854, -0.664764404296875, 2.4190263748168945]
+      ]
+    >
+  }
+}
+```
+
+Evaluating the Training model
+
+```elixir
+data = [{x_test, y_test}]
+
+model
+|> Axon.Loop.evaluator()
+|> Axon.Loop.metric(:accuracy)
+|> Axon.Loop.run(data, trained_model_state)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Batch: 0, accuracy: 1.0000000
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{
+  0 => %{
+    "accuracy" => #Nx.Tensor<
+      f32
+      1.0
+    >
+  }
+}
+```
