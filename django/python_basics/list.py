@@ -29,3 +29,5 @@ print(type(countries[3]))
 # Instead of just using [], we can use list to create list in python
 languages = list(('c','c++','java'))
 print(languages)
+
+# LIST METHODS
