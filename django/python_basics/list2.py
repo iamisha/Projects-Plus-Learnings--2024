@@ -26,7 +26,7 @@ print(countries[-2])
 countries = ['United Kingdom', 2, 'Nigeria', True, 'New Zealand']
 print(type(countries[3]))
 
-# Instead of just using [], we can use list to create list in python
+# Instead of just using [], we can use list to create list in python(list constructor)
 languages = list(('c','c++','java'))
 print(languages)
 
