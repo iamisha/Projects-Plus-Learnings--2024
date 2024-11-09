@@ -1,0 +1,1 @@
+This is the new text in file, it removes all existing texts! This is the new text appended
