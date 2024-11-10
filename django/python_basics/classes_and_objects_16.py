@@ -23,18 +23,24 @@
 
 
 
+# class Person:
+#     def __init__(self, name, age):
+#         self.name = name
+#         self.age = age
+
+# o2 = Person('Kichu', 24)
+
+# del o2.age
+
+# # gives an error 'object has no attribute age' as it has been deleted earlier
+
+# print(o2.age)
+# del o2.name
+
+
+# let's understand the function of pass in python class
+
+# without using pass it gives an error
 class Person:
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
-
-o2 = Person('Kichu', 24)
-
-del o2.age
-
-# gives an error 'object has no attribute age' as it has been deleted earlier
-
-print(o2.age)
-del o2.name
-
+    pass # often used as a placeholder
 
